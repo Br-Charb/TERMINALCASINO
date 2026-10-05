@@ -9,6 +9,7 @@ import re
 from casino.types import GameContext
 from casino.utils import clear_screen, cprint, cinput, display_topbar
 from casino.accounts import Account
+from casino.stats import GameStats, display_stats
 
 ROULETTE_HEADER = """
 ┌─────────────────────────────┐
@@ -480,6 +481,8 @@ def play_roulette(context: GameContext) -> None:
                          f"accounts is a {type(accounts)}")
 
     roulette = AmericanRoulette(accounts)
+
+    stats = GameStats("Roulette", accounts[0].balance)
     while continue_game:
         roulette.reset_round()
         clear_screen()
@@ -491,13 +494,24 @@ def play_roulette(context: GameContext) -> None:
         if choice.lower() in {"q", "quit"}:
             continue_game = False
             break
-
+        balance_before_round = accounts[0].balance
         status = roulette.submit_bets(context)
         if status == "BANKRUPT":
             break
-
+        account_id = str(accounts[0].aid)
+        placed_bet = account_id in roulette.bets
         roulette.spin_wheel(context)
         roulette.payout()
+
+        if placed_bet:
+            stats.rounds_played += 1
+            if accounts[0].balance > balance_before_round:
+                stats.wins += 1
+            elif accounts[0].balance < balance_before_round:
+                stats.losses += 1
+            else:
+                stats.pushes += 1
+
         refresh_roulette_topbar(context)
 
         play_again = None
@@ -516,6 +530,8 @@ def play_roulette(context: GameContext) -> None:
             elif play_again == "" or play_again.lower() in {"y", "yes"}:
                 continue_game = True
                 break
+    stats.ending_balance = accounts[0].balance
+    display_stats(stats)
 
     #cprint("Exiting roulette...")
     #sleep(0.5)
